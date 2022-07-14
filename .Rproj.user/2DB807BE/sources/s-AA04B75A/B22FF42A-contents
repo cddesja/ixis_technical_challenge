@@ -1,0 +1,111 @@
+final_lasso <- finalize_workflow(
+  lasso_workflow,
+  lambda_roc
+)
+
+lasso_last_fit <-
+  final_lasso %>%
+  last_fit(split_dat)
+
+lasso_last_fit  |>
+  collect_metrics()
+
+final_tree <- finalize_workflow(
+  tree_workflow,
+  tree_roc
+)
+
+free_last_fit <-
+  final_tree %>%
+  last_fit(split_dat)
+
+free_last_fit  |>
+  collect_metrics()
+
+lasso_last_fit %>%
+  extract_fit_parsnip() %>%
+  vi() %>%
+  mutate(
+    Variable = forcats::fct_reorder(Variable, Importance)
+  ) %>%
+  head(n = 5) |>
+  ggplot(aes(x = Importance, y = Variable, col = Sign)) +
+  geom_point(size = 10) +
+  geom_segment(aes(xend = 0, yend = Variable), size = 1.8, alpha = .5) +
+  labs(y = NULL) +
+  scale_color_brewer(palette = "Set1") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+# obtain predictions and class probabilities
+lasso_fit_pred <- augment(lasso_last_fit, test_dat) |>
+  select(y, .pred_class:.pred_yes)
+
+# calculate ROC curve
+lasso_fit_pred |>
+  roc_curve(truth= y, .pred_no) |>
+  autoplot()
+
+# calculate area under the curve
+lasso_fit_pred |>
+  roc_auc(truth= y, .pred_no)
+
+# evaluate fit on the test data
+last_fit(
+  final_lasso,
+  split_dat
+) %>%
+  collect_metrics()
+
+final_lasso <- finalize_workflow(
+  lasso_wrkflw %>% add_model(tune_spec_lasso),
+  lamba_acc
+)
+
+
+## decision tree
+bank_folds <- vfold_cv(train_dat) # 10-folds CV instead of bootstrapping
+
+## create the workflow for our classification tree
+tree_wrkflw <-
+  workflow() %>%
+  add_recipe(bank_rcp) %>%
+  add_model(tune_spec_tree)
+
+doParallel::registerDoParallel()
+set.seed(9286)
+
+
+tree_wrkflw <-
+  tree_wrkflw |>
+  finalize_workflow(best_tree_params)
+
+tree_fit <-
+  tree_wrkflw %>%
+  last_fit(split_dat)
+
+tree_fit |>
+  collect_metrics()
+
+final_tree <- extract_workflow(tree_fit)
+final_tree
+
+final_tree |>
+  extract_fit_engine() |>
+  rpart.plot(roundint = FALSE)
+
+final_tree %>%
+  extract_fit_parsnip() %>%
+  vip()
+
+last_fit(
+  final_tree,
+  split_dat
+) %>%
+  collect_metrics()
+
+augment(final_tree, test_dat) |>
+  select(y, .pred_class) |>
+  table()
+

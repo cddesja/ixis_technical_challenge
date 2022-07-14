@@ -1,0 +1,354 @@
+## load libraries
+library(tidymodels)
+library(vip)
+library(ggcorrplot)
+library(rpart.plot)
+library(purrr)
+library(readr)
+library(skimr)
+
+##########################################
+## step 0: define my own functions -------
+##########################################
+
+#' Recode NA to unknown
+#' @param x a categorical variable
+recode_unknown <- function(x){
+  ifelse(x == "unknown", NA, x)
+}
+
+#' Calculate percent missing
+#' @param x a variablecvvu
+perc_miss <- function(x){
+  mean(is.na(x)) * 100 |>
+    round(1)
+}
+
+#############################################
+## step 1: read data and preprocess     -----
+#############################################
+# data.table::fread, if needed for speed, but file size is small
+bank <- readr::read_delim("bank-additional-full.csv", delim = ";")
+
+# based on the data dictionary, some preprocessing can be done.
+bank <- bank |>
+  mutate(
+    # job, martial, educ, default, housing, loan recode unknown to NA
+    across(c(job, marital, education, default, housing, loan), recode_unknown),
+
+    # 999 means client was not previously contacted as NA
+    pdays = ifelse(pdays == 999, NA, pdays),
+
+    # pdays could be recoded to 1 indicate contacted and 0 not contacted
+    # one option for all the missingness
+    pdays_bin = ifelse(is.na(pdays), "not contacted", "contacted"),
+
+    # create an y as continuous for visualization
+    y_bin = ifelse(y == "yes", 1, 0),
+
+    # create an ID variable
+    idvar = row_number(),
+
+    # convert all characters to factors
+    # not necessary, but helpful
+    across(where(is.character), as.factor)
+  )
+
+#############################################
+## step 2: exploratory data              ----
+#############################################
+# descriptive analyses
+glimpse(bank)
+
+skimr::skim(bank)
+bank |>
+  select(is.numeric) |>
+  summarize(across(.fns = ~ sd(.x, na.rm = TRUE)))
+
+
+bank |>
+  count(y) |>
+  mutate(prop = n / sum(n))
+
+#######################################
+## step 3: data cleaning/wrangling ----
+#######################################
+
+# examine missing data
+bank |>
+  summarize(across(.fns = perc_miss))
+# ----------
+# notes:
+# - pdays is missing a lot, likely will want to drop from model
+# - an alternative, pdays could be recoded to 1 indicating contacted and 0 not contacted
+# ----------
+bank <- bank_cleaning |>
+  mutate(pdays_bin = ifelse(is.na(pdays), "not contacted", "contacted"))
+
+# additional recoding
+# - recode y to numeric for visualization and modeling
+bank_cleaning <- bank_cleaning |>
+  mutate(y_bin = ifelse(y == "yes", 1, 0),
+         idvar = row_number())
+
+
+#######################################
+## step 4: data visualization ----
+#######################################
+
+### examine continuous features first ----
+cont_feat_wide <- bank_cleaning |>
+  select_if(is.numeric)
+
+# visualize the correlation plot
+cont_feat_wide |>
+  select(-idvar) |>
+  cor(use = "pairwise.complete.obs") |>
+  ggcorrplot(lab = TRUE,
+             type = "lower")
+# ----------
+# notes:
+# some of these variables are really highly correlated
+# - emp.var.rate w/ euribor3mm, nr.employed
+# - euribor3mm w/ nr.employed
+#
+# the response, y, is most correlated w/
+# - duration
+# - nr.employed
+# - euribor3m, and
+# - emp.var.rate
+#
+# likely won't need all these social and economic outcomes
+
+## histograms
+cont_feat_wide |>
+  pivot_longer(cols = age:nr.employed) |>
+  ggplot(aes(value)) +
+  geom_histogram(fill = "white", col = "black") +
+  facet_wrap(~ name, scales = "free")
+# ----------
+# notes:
+# campaign, duration, and previous right-skewed
+# euribor3m possibly 2 or 3 classes
+# could consider transformation and converting euribor3m to a categorical variable
+# ----------
+
+# empirical logits plot
+cont_feat_wide |>
+  pivot_longer(cols = age:nr.employed) |>
+  group_by(name, value) |>
+  summarize(p = mean(y_bin),
+            n = n()) |>
+  mutate(logodds = log(p / (1 - p))) |>
+  ggplot(aes(y = logodds, x = value)) +
+  geom_point(aes(size = n), ylab = "Empirical Logit") +
+  facet_wrap(~ name, scales = "free")
+# ----------
+# notes:
+# age has a nonlinear relationship
+# campaign, emp.var.rate, and nr.employed negative "linear"
+# duration, previous positive "linear"
+# ----------
+
+### examine categorical features next -----
+cat_feat_wide <- bank_cleaning |>
+  select_if(function(x) is.character(x) | is.factor(x))
+
+## barcharts
+cat_feat_wide |>
+  pivot_longer(cols = c(job:poutcome, pdays_bin)) |>
+  group_by(name, value) |>
+  summarize(p = mean(y == "yes"),
+            n = n()) |>
+  ggplot(aes(value, p)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ name, scales = "free")
+# ----------
+# notes:
+# contact, default,  education, job, martial, month, pdays_bin, and poutcome are related to y
+# ----------
+
+
+#######################################
+## step 5: model fitting ----
+#######################################
+bank_model <- bank_cleaning |>
+  select(age:y, -pdays, idvar) |> # drop pdays, too much missingness
+  na.omit()
+
+# split the data for model building and testing
+set.seed(62134)
+split_dat <- initial_split(bank_model,
+                           strata = y)
+train_dat <- training(split_dat)
+test_dat <- testing(split_dat)
+
+
+# create a validation set
+
+# don't use idvar in our models, but retain
+bank_rcp <- recipe(y ~ ., data = train_dat) |>
+  update_role(idvar, new_role = "ID") |>
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors()) %>%
+  step_normalize(all_numeric())
+
+
+#########################################
+## logistic lasso regression model  ----
+# need to figure out what the penalty parameter should be
+set.seed(51234)
+bank_boot <- bootstraps(train)
+tune_spec_lasso <- logistic_reg(penalty = tune(), mixture = 1) %>%
+  set_engine("glmnet")
+lambda_grid <- grid_regular(penalty(), levels = 50)
+
+## create the workflow for our lasso logistic regression
+lasso_wrkflw <-
+  workflow() %>%
+  add_recipe(bank_rcp)
+
+doParallel::registerDoParallel()
+set.seed(97652)
+
+lasso_grid <- tune_grid(
+  lasso_wrkflw %>% add_model(tune_spec_lasso),
+  resamples = bank_boot,
+  grid = lambda_grid
+)
+
+lasso_grid %>%
+  collect_metrics() %>%
+  ggplot(aes(penalty, mean, color = .metric)) +
+  geom_errorbar(aes(ymin = mean - std_err,
+                    ymax = mean + std_err),
+                alpha = 0.5) +
+  geom_line(size = 1.5) +
+  facet_wrap(~.metric, scales = "free", nrow = 2) +
+  scale_x_log10() +
+  theme(legend.position = "none")
+
+lamba_acc <- lasso_grid %>%
+  select_best("accuracy")
+
+final_lasso <- finalize_workflow(
+  lasso_wrkflw %>% add_model(tune_spec_lasso),
+  lamba_acc
+  )
+
+lasso_fit <-
+  final_lasso %>%
+  fit(data = train)
+
+lasso_fit %>%
+  extract_fit_parsnip() %>%
+  vi() %>%
+  mutate(
+    Variable = forcats::fct_reorder(Variable, Importance)
+  ) %>%
+  ggplot(aes(x = Importance, y = Variable, col = Sign)) +
+  geom_point(size = 2) +
+  geom_segment(aes(xend = 0, yend = Variable)) +
+  labs(y = NULL) +
+  scale_color_brewer(palette = "Set1")
+
+# obtain predictions and class probabilities
+lasso_fit_pred <- augment(lasso_fit, test_dat) |>
+  select(y, .pred_class:.pred_yes)
+
+# calculate ROC curvee
+lasso_fit_pred |>
+  roc_curve(truth= y, .pred_no) |>
+  autoplot()
+
+# calculate area under the curve
+lasso_fit_pred |>
+  roc_auc(truth= y, .pred_no)
+
+# evaluate fit on the test data
+last_fit(
+  final_lasso,
+  split_dat
+) %>%
+  collect_metrics()
+
+#################################
+## decision tree  ---------------
+#################################
+
+# Need to select cost_complexity and tree_depth as these affect number of nodes/depth
+# to reduce overfit
+tune_spec_tree <-
+  decision_tree(
+    cost_complexity = tune(),
+    tree_depth = tune()
+  ) %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+# Try 10 different complexity and depth parameters
+tree_grid <- grid_regular(cost_complexity(),
+                          tree_depth(),
+                          levels = 5)
+
+
+set.seed(987652)
+bank_folds <- vfold_cv(train_dat) # 10-folds CV instead of bootstrapping
+
+## create the workflow for our classification tree
+tree_wrkflw <-
+  workflow() %>%
+  add_recipe(bank_rcp) %>%
+  add_model(tune_spec_tree)
+
+doParallel::registerDoParallel()
+set.seed(9286)
+param_grid_tree <- tune_grid(
+  tree_wrkflw,
+  resamples = bank_folds,
+  grid = tree_grid
+)
+
+param_grid_tree |>
+  collect_metrics() |>
+  mutate(tree_depth = factor(tree_depth)) |>
+  ggplot(aes(x = cost_complexity, y = mean, color = tree_depth)) +
+  geom_line() +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free") +
+  theme_bw()
+
+best_tree_params <- param_grid_tree |>
+  select_best("accuracy")
+
+tree_wrkflw <-
+  tree_wrkflw |>
+  finalize_workflow(best_tree_params)
+
+tree_fit <-
+  tree_wrkflw %>%
+  last_fit(split_dat)
+
+tree_fit |>
+  collect_metrics()
+
+final_tree <- extract_workflow(tree_fit)
+final_tree
+
+final_tree |>
+  extract_fit_engine() |>
+  rpart.plot(roundint = FALSE)
+
+final_tree %>%
+  extract_fit_parsnip() %>%
+  vip()
+
+last_fit(
+  final_tree,
+  split_dat
+) %>%
+  collect_metrics()
+
+augment(final_tree, test_dat) |>
+  select(y, .pred_class) |>
+  table()
