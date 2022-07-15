@@ -22,7 +22,7 @@
 
 * The `function.R` has all the hard work and is well documented. 
 
-* The presentation is available at http://cddesja.github.io/ixis_technical_challenge. A PDF of this presentation is available in `presentation.pdf`.
+* The presentation is available at https://cddesja.github.io/ixis_technical_challenge. A PDF of this presentation is available in `presentation.pdf`.
 
 ## Technical Description
 
