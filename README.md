@@ -1,5 +1,6 @@
 # IXIS Technical Challenge
  Code and Documentation for IXIS Technical Challenge
+ 
 
 ## How to use this repository?
 * Install the following `R` packages:
@@ -20,6 +21,8 @@
 * Run `tar_make()` to create all the output which will be saved in `_targets/objects`. These objects be read with `tar_read()` 
 
 * The `function.R` has all the hard work and is well coded.
+
+* The presentation is available at http://cddesja.github.io/ixis_technical_challenge
 
 ## Technical Description
 

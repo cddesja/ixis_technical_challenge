@@ -186,12 +186,12 @@ train_lasso <- function(training_data, lasso_workflow, seed = 97652){
   best_param <- lasso_tune %>%
     select_best("roc_auc")
 
-  # save AUC curve for comparsion
+  # save AUC curve for comparison
   lasso_auc <-
     lasso_tune |>
     collect_predictions(parameters = best_param) |>
     roc_curve(y, .pred_no) |>
-    mutate(model = "Lasso Logistic Regression")
+    mutate(model = "LASSO Logistic Regression")
 
   # return some output that will be helpful for validation
   list(
@@ -285,7 +285,11 @@ compare_models <- function(model1, model2){
   bind_rows(model1, model2) |>
     ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) +
     geom_path(lwd = 1.2) +
-    scale_color_brewer(palette = "Set1") +
+    geom_abline(intercept = 0, slope = 1, lty = 3, col = "gray80") +
+    xlab("1 - Specificity") +
+    ylab("Sensitivity") +
+    ggtitle("Comparison of Two Candidate Models", subtitle = "The curves overlap substaintially indicating the models have comparable performance.") +
+    scale_color_brewer("", palette = "Set1") +
     theme_bw()
 }
 
@@ -313,7 +317,7 @@ final_lasso_model <- function(split_data, lasso_workflow, best_param){
     mutate(Variable = recode(Variable, emp.var.rate = "Employment Variation Rate",
                              duration = "Last Contact Duration",
                              cons.price.idx = "Consumer Price Index",
-                             euribor3m = "Euribor 3 month rate",
+                             euribor3m = "Euribor 3 Month Rate",
                              poutcome_success = "Successful Previous Market Compaign"))
 
   plot_vi <- extract_vi |>
@@ -326,7 +330,7 @@ final_lasso_model <- function(split_data, lasso_workflow, best_param){
     theme(legend.position = "none",
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank()) +
-    ggtitle("Top 5 Most Important Predictors")
+    ggtitle("Top 5 Most Important Characteristics", subtitle = "Red indicates negative association with subscribing, while blue indicates a positive association.")
 
   list(
     fit_measures = fit_measures,
