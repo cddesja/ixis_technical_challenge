@@ -11,12 +11,12 @@
   - `readr`
   - `skimr`
  
-* Clone/download the repository
+* Clone/download the repository.
 
-* Open `ixis.Rproj` in RStudio (though this isn't necessary)
+* Open `ixis.Rproj` in RStudio (though this isn't necessary).
 
 * Open `_targets.R` to see my ML pipeline, Lines 25 - 65.
-  - A diagram of this pipeline can be seen by `tar_visnetwork()`
+  - A diagram of this pipeline can be seen by `tar_visnetwork()`.
     
 * Run `tar_make()` to create all the output which will be saved in `_targets/objects`. These objects be read with `tar_read()`. 
 
