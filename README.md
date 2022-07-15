@@ -20,7 +20,7 @@
     
 * Run `tar_make()` to create all the output which will be saved in `_targets/objects`. These objects be read with `tar_read()`. 
 
-* The `function.R` has all the hard work and is well documented. 
+* The `R/function.R` has all the hard work and is well documented. 
 
 * The presentation is available at https://cddesja.github.io/ixis_technical_challenge. A PDF of this presentation is available in `presentation.pdf`.
 
