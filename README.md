@@ -1,7 +1,7 @@
 # IXIS Technical Challenge
  Code and Documentation for IXIS Technical Challenge
 
-## How to use repository?
+## How to use this repository?
 * Install the following `R` packages:
   - `targets`
   - `tidymodels`
@@ -37,9 +37,12 @@ The exact pipeline that was used is available in the `_targets.R`, see lines 25 
 
 ![Machine Learning Pipeline](ml_pipeline.png)
 
+A greatly simplified version of the major components in this pipeline is shown in the diagram below.
+
+![Simplified Pipeline](simplified_pipeline.png)
 
 Provide written documentation describing:
-– The methodology chosen for this project
+
 – A diagram of your ML pipeline(s)
 – An explanation of the technical considerations/decisions made at each step of the pipeline
 1
