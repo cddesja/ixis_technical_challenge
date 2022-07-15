@@ -18,7 +18,7 @@
 * Open `_targets.R` to see my ML pipeline, Lines 25 - 65.
   - A diagram of this pipeline can be seen by `tar_visnetwork()`
     
-* Run `tar_make()` to create all the output which will be saved in `_targets/objects`. These objects be read with `tar_read()` 
+* Run `tar_make()` to create all the output which will be saved in `_targets/objects`. These objects be read with `tar_read()`. 
 
 * The `function.R` has all the hard work and is well documented. 
 
