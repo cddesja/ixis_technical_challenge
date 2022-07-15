@@ -47,11 +47,11 @@ list(
 
   # set up and run LASSO
   tar_target(lasso_workflow, feature_prep_lasso(partition_data$train)),
-  tar_target(tuned_lasso, train_lasso(partition_data$valid, lasso_workflow)),
+  tar_target(tuned_lasso, train_lasso(partition_data$train, lasso_workflow)),
 
   # set up and run decision tree
   tar_target(tree_workflow, feature_prep_tree(partition_data$train)),
-  tar_target(tuned_tree, train_tree(partition_data$valid, tree_workflow)),
+  tar_target(tuned_tree, train_tree(partition_data$train, tree_workflow)),
 
   # compare the two models
   tar_target(comparative_plot, compare_models(tuned_lasso$compare_auc, tuned_tree$compare_auc)),

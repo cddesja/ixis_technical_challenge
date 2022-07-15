@@ -23,7 +23,19 @@
 
 ## Technical Description
 
-The purpose of this challenge was to help a marketing executive at a large bank (1) understand which characteristics of potential customers are the best predictors of purchasing of one of the bank’s products and (2) to develop a predictive model to score each potential customer’s propensity to purchase. Based on these two objectives I decided to fit a LASSO logistic regression and a decision tree. Logistic regression models are highly interpretable, well known, and fast to run. They typically do a good job for most models. Given that I had 19 potential features, I had a couple obvious options for a logistic regression model - stepwise logistic regresion or penalized logistic regression. Both of these approaches would enable me to reduce the number of features in my final model and have a highly intepretable, more parsimonious, and potentially more predictive model. I decided to use LASSO over ridge or elastic net, e.g., because LASSO has the potential to shrink coefficients to 0, while ridge won't. The rational for a classifcation tree was that they two are highly interptable, allow for non-linear relationships, and have excellent visualizations for understanding the model (i.e., tree diagmras).  
+### Purpose
+The purpose of this challenge was to help a marketing executive at a large bank (1) understand which characteristics of potential customers are the best predictors of purchasing of one of the bank’s products and (2) to develop a predictive model to score each potential customer’s propensity to purchase. 
+
+### Model Methodology and Justification
+Based on these two objectives, a LASSO logistic regression and a decision tree were fit. Logistic regression models were examined as they (a) are highly interpretable, (b) their properties are well understood, (c) potential known to the end user and (d) fast to run. In situation of linear relations between features and the response variable, on the logit scale, they preform well. Given there were 19 candidate features, a couple of approaches to selecting the best logistic regression model were considered: stepwise logistic regression and penalized logistic regression. Either approach would result in a final model with fewer features. In general, penalized logistic regression tends to perform better, in terms of bias/variance tradefoff, than stepwise and thus this approach was selected. Finally, LASSO was performed over ridge or elastic net as it can shrink features' cofficients to 0. 
+
+The other modeling framework considered was a decision tree. Decision trees are helpful when nonlinear relations are expected. They are more flexible than logistic regression, while still being highly interpretable. The decision to consider a decision tree over random forest, e.g., was that if this model fit better than logistic regression it would be possible to communicate modeling findings with tree diagrams rather than just variable importance. 
+
+### Diagram of ML pipeline
+
+The exact pipeline that was used is available in the `_targets.R`, see lines 25 - 65, and is shown in the diagram below.
+
+![Machine Learning Pipeline](ml_pipeline.png)
 
 
 Provide written documentation describing:

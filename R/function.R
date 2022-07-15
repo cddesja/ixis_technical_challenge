@@ -117,14 +117,11 @@ part_data <- function(data, seed = 62134){
                              strata = y)
   train_dat <- training(split_dat)
   test_dat <- testing(split_dat)
-  valid_dat <- validation_split(train_dat,
-                                strata = y)
 
   # return a list of the various data sets
   list(split = split_dat,
        train = train_dat,
-       test = test_dat,
-       valid = valid_dat)
+       test = test_dat)
 }
 
 # feature preparation and model set up for the lasso ----
@@ -156,16 +153,19 @@ feature_prep_lasso <- function(training_data){
     add_recipe(lasso_recipe)
 }
 
-train_lasso <- function(validation_data, lasso_workflow, seed = 97652){
+train_lasso <- function(training_data, lasso_workflow, seed = 97652){
 
   # set up plausible values for lambda
   lambda_grid <- grid_regular(penalty(), levels = 50)
 
   set.seed(seed)
 
+  # use k-folds cross-validation, where k = 10.
+  folds_data <- vfold_cv(training_data)
+
   # train the models and save the validation predictions
   lasso_tune <- lasso_workflow |>
-    tune_grid(validation_data,
+    tune_grid(resamples = folds_data,
               grid = lambda_grid,
               control = control_grid(save_pred = TRUE))
 
@@ -230,7 +230,7 @@ feature_prep_tree <- function(training_data){
 }
 
 # train the decision tree
-train_tree <- function(validation_data, tree_workflow, seed = 987652){
+train_tree <- function(training_data, tree_workflow, seed = 97652){
 
   # Try 25 different complexity and depth parameters combinations
   tree_grid <- grid_regular(cost_complexity(),
@@ -239,9 +239,12 @@ train_tree <- function(validation_data, tree_workflow, seed = 987652){
 
   set.seed(seed)
 
+  # use k-folds cross-validation, where k = 10.
+  folds_data <- vfold_cv(training_data)
+
   # train the models and save the validation predictions
   tree_tune <- tree_workflow |>
-    tune_grid(validation_data,
+    tune_grid(resamples = folds_data,
               grid = tree_grid,
               control = control_grid(save_pred = TRUE))
 
